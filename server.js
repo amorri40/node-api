@@ -14,11 +14,12 @@ app.use(morgan('dev')); // log requests to the console
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-var port     = process.env.PORT || 8080; // set our port
+var port     = process.env.PORT || 3001; // set our port
 
 var mongoose   = require('mongoose');
-mongoose.connect('mongodb://node:node@novus.modulusmongo.net:27017/Iganiq8o'); // connect to our database
-var Bear     = require('./app/models/bear');
+mongoose.connect('mongodb://62.210.115.189:27017/ukpa_database'); // connect to our database
+var Tag     = require('./app/models/tags');
+var Comic     = require('./app/models/comics');
 
 // ROUTES FOR OUR API
 // =============================================================================
@@ -38,72 +39,146 @@ router.get('/', function(req, res) {
 	res.json({ message: 'hooray! welcome to our api!' });	
 });
 
-// on routes that end in /bears
+// on routes that end in /Tags
 // ----------------------------------------------------
-router.route('/bears')
+router.route('/tags')
 
-	// create a bear (accessed at POST http://localhost:8080/bears)
+	// create a Tag (accessed at POST http://localhost:8080/Tags)
 	.post(function(req, res) {
-		
-		var bear = new Bear();		// create a new instance of the Bear model
-		bear.name = req.body.name;  // set the bears name (comes from the request)
+		res.header('Access-Control-Allow-Origin' , '*' );		
+		// var tag = new Tag();		// create a new instance of the Tag model
+		// tag.name = req.body.name;  // set the Tags name (comes from the request)
 
-		bear.save(function(err) {
-			if (err)
-				res.send(err);
+		// tag.save(function(err) {
+		// 	if (err)
+		// 		res.send(err);
 
-			res.json({ message: 'Bear created!' });
-		});
+		// 	res.json({ message: 'Tag: '+tag.name+' created!' });
+		// });
+
+		var query = {'name':req.body.name};
+		// var newData = {}
+		// newData.name = req.body.name;
+		// Tag.findOneAndUpdate(query, req.newData, {upsert:true}, function(err, doc){
+		//     if (err) return res.send(500, { error: err });
+		//     res.json({ message: 'Tag: '+tag.name+' created!' });
+		// });
+
+	var tag_name = req.body.name;
+
+	Tag.update(query, {$set: { 'name': tag_name },$setOnInsert: {'approved':0}, $inc: {'usage': 1}}, {upsert: true}, function(err){
+		if (err) return res.send(500, { error: err });
+	    res.json({ message: 'Tag: '+tag_name+' created!' });
+	})
+
 
 		
 	})
 
-	// get all the bears (accessed at GET http://localhost:8080/api/bears)
+	// get all the Tags (accessed at GET http://localhost:8080/api/Tags)
 	.get(function(req, res) {
-		Bear.find(function(err, bears) {
+		Tag.find(function(err, tags) {
 			if (err)
 				res.send(err);
 
-			res.json(bears);
+			res.jsonp(tags);
 		});
 	});
 
-// on routes that end in /bears/:bear_id
-// ----------------------------------------------------
-router.route('/bears/:bear_id')
 
-	// get the bear with that id
-	.get(function(req, res) {
-		Bear.findById(req.params.bear_id, function(err, bear) {
+// 
+// # Comics info
+// 
+router.route('/comics')
+.get(function(req, res) {
+
+		Comic.find(function(err, tags) {
 			if (err)
 				res.send(err);
-			res.json(bear);
+			res.json(tags);
 		});
-	})
+	});
 
-	// update the bear with this id
-	.put(function(req, res) {
-		Bear.findById(req.params.bear_id, function(err, bear) {
+router.route('/comic/:comic_name/:page_number/tags')
+.get(function(req, res) {
+	
+	res.header('Access-Control-Allow-Origin' , '*' );
+	var comic_name = req.params.comic_name;
+	var page_number = req.params.page_number;
+	console.log(page_number)
 
-			if (err)
-				res.send(err);
-
-			bear.name = req.body.name;
-			bear.save(function(err) {
+	var query = {'file_name':req.params.comic_name};
+	console.log(query,req.params.comic_name)
+			Comic.findOne(query, function(err, comic) {
 				if (err)
 					res.send(err);
 
-				res.json({ message: 'Bear updated!' });
+				console.log(comic, comic.pages, page_number, typeof(comic.pages), Object.keys(comic.pages))
+
+				var the_page = comic.pages[page_number];
+				if (typeof(the_page) !== 'undefined')
+					res.json(the_page);
+				else
+					res.json(comic.pages);
+			});
+	})
+.post(function(req, res) {
+	res.header('Access-Control-Allow-Origin' , '*' );
+	var comic_name = req.params.comic_name;
+	var page_number = req.params.page_number;
+	var query = {'file_name':req.params.comic_name};
+	console.log(query,req.params, req.body.tags);
+
+	var data_to_set = 'pages['+page_number+']tags';
+
+	var data_to_update = {$set:{}};
+	data_to_update['$set'][data_to_set] = req.body.tags;
+
+	Comic.update(query, data_to_update, function(err) {
+		if (err) 
+			return res.send(500, { error: err });
+	    res.json({ message: comic_name+' updated!' });
+	});
+});
+
+
+
+// on routes that end in /Tags/:Tag_id
+// ----------------------------------------------------
+router.route('/tags/:tag_id')
+
+	// get the Tag with that id
+	.get(function(req, res) {
+		Tag.findById(req.params.tag_id, function(err, tag) {
+			if (err)
+				res.send(err);
+			res.json(tag);
+		});
+	})
+
+	// update the Tag with this id
+	.put(function(req, res) {
+		Tag.findById(req.params.tag_id, function(err, tag) {
+
+			if (err)
+				res.send(err);
+
+			tag.name = req.body.name;
+			tag.save(function(err) {
+				if (err)
+					res.send(err);
+
+				res.json({ message: 'Tag updated!' });
 			});
 
 		});
 	})
 
-	// delete the bear with this id
+	// delete the Tag with this id
 	.delete(function(req, res) {
-		Bear.remove({
-			_id: req.params.bear_id
-		}, function(err, bear) {
+		Tag.remove({
+			_id: req.params.tag_id
+		}, function(err, tag) {
 			if (err)
 				res.send(err);
 
